@@ -1,0 +1,51 @@
+ 
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*$py.class
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+build/
+dist/
+*.egg-info/
+.eggs/ 
+*.index
+*.faiss
+*.bin
+*.npy
+
+# Local data folders (optional)
+data/
+downloads/
+temp/
+cache/
+ 
+ 
+.env
+.env.*
+*.env
+ 
+node_modules/
+
+# Production build
+dist/
+build/
+
+# Vite cache
+.vite/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+ 
+*.swp
+*.swo
+ 
