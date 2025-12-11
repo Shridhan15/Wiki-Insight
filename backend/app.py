@@ -1,9 +1,19 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 from rag_engine import extract_wikipedia_text, build_vector_store, structure_content, answer_with_rag
+from fastapi.middleware.cors import CORSMiddleware
 
-app = FastAPI()
- 
+app = FastAPI() 
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+    allow_credentials=True,
+)
+
+
 class URLRequest(BaseModel):
     url: str
 
