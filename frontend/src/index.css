@@ -1,4 +1,4 @@
- 
+@import "tailwindcss";
 .spinner {
   width: 30px;
   height: 30px;
@@ -9,5 +9,17 @@
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
 }

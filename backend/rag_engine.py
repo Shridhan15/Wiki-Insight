@@ -91,52 +91,121 @@ def retrieve(question, top_k=5):
 # -------------------------------------------------------
 # 5. Structure Wikipedia content
 # -------------------------------------------------------
+import json
+import openai # Ensure you have the openai library imported to catch the error
+
 def structure_content(text):
+    # We take a larger slice of the text for big pages
+    content_slice = text[:15000] # Slightly reduced to stay under token limits
+    
     prompt = f"""
-Structure the Wikipedia content below into:
-1. Title
-2. Summary (3–5 lines)
-3. 10 Key Highlights
-4. Section-wise bullet breakdown
-5. Key terms + definitions
-6. TLDR (2–3 lines)
+    Perform an exhaustive technical analysis. For large topics, you MUST provide deep detail.
+    Return a JSON object:
+    {{
+      "title": "Short Title (Max 4 words)",
+      "executive_summary": "Two long, detailed paragraphs (minimum 100 words total).",
+      "technical_stack": [
+        {{ "component": "Short Name", "role": "A very detailed 3-sentence explanation." }}
+      ],
+      "detailed_breakdown": [
+        {{ 
+          "section_title": "Section Name", 
+          "content": "A substantial paragraph explaining complex concepts in depth.",
+          "bullets": ["Detailed point 1", "Detailed point 2", "Detailed point 3", "Detailed point 4", "Detailed point 5"]
+        }}
+      ],
+      "use_cases": ["Detailed scenario 1 with context", "Detailed scenario 2 with context"],
+      "tldr": "A comprehensive concluding synthesis."
+    }}
 
-Return in clean human-readable text.
+    Rules: 
+    - The 'title' field MUST NOT exceed 4 words.
+    - Provide at least 5 'detailed_breakdown' sections for comprehensive coverage.
+    
+    Content:
+    {content_slice}
+    """
 
-Content:
-{text[:12000]}
-"""
+    try:
+        response = client.chat.completions.create(
+            model=LLM_MODEL,
+            messages=[
+                {"role": "system", "content": "You are a technical architect who writes long-form, detailed documentation."},
+                {"role": "user", "content": prompt}
+            ],
+            response_format={ "type": "json_object" }
+        )
+        return response.choices[0].message.content
 
-    response = client.chat.completions.create(
-        model=LLM_MODEL,
-        messages=[{"role": "user", "content": prompt}]
-    )
-
-    return response.choices[0].message.content
-
-
+    except openai.RateLimitError:
+        # FALLBACK: Return a clean JSON that the frontend can display
+        return json.dumps({
+            "title": "API Rate Limit",
+            "executive_summary": "We have temporarily reached the maximum capacity for our AI model. This usually happens when processing very large articles or making too many requests in a short window.",
+            "technical_stack": [
+                { "component": "Quota Exceeded", "role": "The Groq API (Llama 3.3) has a daily token limit. Your request was blocked to prevent account suspension." }
+            ],
+            "detailed_breakdown": [
+                { 
+                    "section_title": "How to fix this?", 
+                    "content": "You can try again in approximately 10-15 minutes. To avoid this in the future, try summarizing shorter sections of text or upgrading your API tier.",
+                    "bullets": ["Wait 10 minutes", "Use a smaller model (8B)", "Reduce input text length"]
+                }
+            ],
+            "use_cases": ["Try again shortly", "Reduce article length"],
+            "tldr": "Rate limit reached. Please wait 10-15 minutes before trying again."
+        })
+    
+    except Exception as e:
+        # General Error Fallback
+        return json.dumps({
+            "title": "Analysis Error",
+            "executive_summary": f"An unexpected error occurred: {str(e)}",
+            "technical_stack": [],
+            "detailed_breakdown": [],
+            "use_cases": [],
+            "tldr": "Please check the console for more details."
+        })
 # -------------------------------------------------------
 # 6. RAG Answering
 # -------------------------------------------------------
+import openai
+
 def answer_with_rag(question):
-    context = "\n\n---\n\n".join(retrieve(question))
+    try:
+        # 1. Retrieve context
+        context_chunks = retrieve(question)
+        context = "\n\n---\n\n".join(context_chunks)
 
-    prompt = f"""
-Answer the question using ONLY the context below.
+        prompt = f"""
+        Answer the question using ONLY the context below. 
 
-CONTEXT:
-{context}
+        CONTEXT:
+        {context}
 
-QUESTION:
-{question}
+        QUESTION:
+        {question}
 
-If the answer does not exist in the context, reply:
-"I don't know from context."
-"""
+        If the answer does not exist in the context, reply: 
+        "I don't know from context."
+        """
 
-    response = client.chat.completions.create(
-        model=LLM_MODEL,
-        messages=[{"role": "user", "content": prompt}]
-    )
+        # 2. LLM Call
+        response = client.chat.completions.create(
+            model=LLM_MODEL,
+            messages=[{"role": "user", "content": prompt}]
+        )
 
-    return response.choices[0].message.content
+        return response.choices[0].message.content
+
+    except openai.RateLimitError:
+        # Professional system status notification (No apology)
+        return (
+            "SYSTEM NOTICE: Daily API token quota reached. "
+            "The model 'llama-3.3-70b-versatile' has exceeded its allocated request limit. "
+            "Service will resume once the rate limit window resets (estimated 10-15 minutes)."
+        )
+    
+    except Exception as e:
+        # Technical error logging
+        return f"TECHNICAL ERROR: Request could not be completed. Details: {str(e)}"
