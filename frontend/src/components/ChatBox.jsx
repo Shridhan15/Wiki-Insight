@@ -44,7 +44,7 @@ function MessageBubble({ msg, isLast }) {
         </div>
       )}
       <div
-        className={`max-w-[85%] p-4 rounded-[1.5rem] text-[15px] leading-relaxed shadow-sm border transition-colors duration-500 ${
+        className={`max-w-[85%] p-4 rounded-3xl text-[15px] leading-relaxed shadow-sm border transition-colors duration-500 ${
           isAi
             ? isSystemNotice
               ? "bg-red-50 border-red-200 text-red-800 rounded-tl-none font-medium"
@@ -106,7 +106,7 @@ export default function ChatBox({ history, onAsk, isTyping, active, title }) {
           </div>
         </div>
         {active && (
-          <div className="hidden xl:block px-3 py-1 bg-white border border-slate-200 rounded-full text-[10px] font-bold text-slate-400 truncate max-w-[150px]">
+          <div className="hidden xl:block px-3 py-1 bg-white border border-slate-200 rounded-full text-[10px] font-bold text-slate-400 truncate max-w-37.5">
             {title || "Article Loaded"}
           </div>
         )}
@@ -115,7 +115,7 @@ export default function ChatBox({ history, onAsk, isTyping, active, title }) {
       {/* 2. MESSAGES AREA */}
       <div
         ref={scrollRef}
-        className="flex-grow p-8 overflow-y-auto no-scrollbar bg-[radial-gradient(#e2e8f0_1px,transparent_1px)] [background-size:20px_20px]"
+        className="grow p-8 overflow-y-auto no-scrollbar bg-[radial-gradient(#e2e8f0_1px,transparent_1px)] bg-size-[20px_20px]"
       >
         {!history.length && (
           <div className="h-full flex flex-col items-center justify-center text-slate-400 space-y-4 animate-in fade-in duration-700">
