@@ -36,14 +36,23 @@ FAISS_INDEX = None
 def extract_wikipedia_text(url: str) -> str:
     downloaded = trafilatura.fetch_url(url)
     if not downloaded:
-        raise Exception("Failed to download webpage")
+        raise Exception("Failed to download webpage. Check the URL.")
 
-    text = trafilatura.extract(downloaded)
+    # Removed 'extract_formatted' and used 'include_formatting' if supported, 
+    # but 'favor_recall' and 'include_tables' are the most critical for your needs.
+    text = trafilatura.extract(
+        downloaded, 
+        favor_recall=True, 
+        include_tables=True,
+        include_images=False,
+        include_links=False,
+        # include_formatting=True  # Optional: use this instead if you want bold/italics markers
+    )
+    
     if not text:
-        raise Exception("Failed to extract clean text")
+        raise Exception("Failed to extract clean text from the page.")
 
     return text
-
 
 # -------------------------------------------------------
 # 2. Chunk text
@@ -95,32 +104,33 @@ import json
 import openai # Ensure you have the openai library imported to catch the error
 
 def structure_content(text):
-    content_slice = text[:15000] 
+    # Expanded context slice to capture more of the page
+    content_slice = text[:18000] 
     
     prompt = f"""
-    Perform a strictly factual analysis of the provided text. 
+    Perform a COMPREHENSIVE technical and topical analysis of the provided text.
     
-    RULES:
-    1. Do NOT invent information. If Technical Stack or Use Cases are not explicitly mentioned or implied by the technology, return null for those fields.
-    2. The 'title' must be exactly 4 words or fewer.
-    3. Do NOT use corporate filler like 'dedicated contributor' or 'valuable asset' for personal pages.
-    4. Return a JSON object with this EXACT structure:
+    INSTRUCTIONS:
+    1. VISITATION: You must identify every major heading and unique topic in the text.
+    2. DATA INTEGRITY: Do NOT invent achievements or technical details. If 'technical_stack' or 'use_cases' are not present, return null.
+    3. SCOPE: Ensure 'detailed_breakdown' captures the full breadth of the article, from introduction to final sections.
+    4. FORMAT: Return a JSON object with this EXACT structure:
 
     {{
-      "title": "Short Factual Title",
-      "executive_summary": "Detailed factual overview based ONLY on text.",
+      "title": "Factual Title (Max 4 words)",
+      "executive_summary": "A deep, 2-paragraph summary covering all primary themes.",
       "technical_stack": [
-        {{ "component": "Name", "role": "Purpose" }}
-      ], // or null
+        {{ "component": "Name", "role": "Factual role" }}
+      ], 
       "detailed_breakdown": [
         {{ 
           "section_title": "Section Name", 
-          "content": "Paragraph",
-          "bullets": ["point"]
+          "content": "Comprehensive paragraph summarizing this specific area of the text.",
+          "bullets": ["Crucial detail 1", "Crucial detail 2", "Crucial detail 3"]
         }}
       ],
-      "use_cases": ["Scenario"], // or null
-      "tldr": "Final summary"
+      "use_cases": ["Factual application scenario"], 
+      "tldr": "High-level synthesis of the entire page."
     }}
 
     Content:
@@ -131,7 +141,7 @@ def structure_content(text):
         response = client.chat.completions.create(
             model=LLM_MODEL,
             messages=[
-                {"role": "system", "content": "You are a precise data extractor. You prioritize accuracy over length. If data is missing, you return null."},
+                {"role": "system", "content": "You are a high-recall information extractor. Your goal is to ensure no major sub-topic from the source text is ignored. You use a professional, neutral tone."},
                 {"role": "user", "content": prompt}
             ],
             response_format={ "type": "json_object" }
@@ -140,15 +150,28 @@ def structure_content(text):
 
     except openai.RateLimitError:
         return json.dumps({
-            "title": "API Rate Limit",
-            "executive_summary": "System capacity reached. Please wait 10-15 minutes.",
-            "technical_stack": "null",
-            "detailed_breakdown": [],
-            "use_cases": "null",
+            "title": "System Rate Limit",
+            "executive_summary": "SYSTEM NOTICE: Daily API token quota reached. Analysis is temporarily paused.",
+            "technical_stack": None, # Use None (null in JSON) instead of "null" string
+            "detailed_breakdown": [{"section_title": "Notice", "content": "Please wait 10-15 minutes.", "bullets": []}],
+            "use_cases": None,
             "tldr": "Limit reached."
         })
     except Exception as e:
-        return json.dumps({ "title": "Error", "executive_summary": str(e), "technical_stack": "null", "detailed_breakdown": [], "use_cases": "null", "tldr": "Error" })
+        return json.dumps({ 
+            "title": "Analysis Error", 
+            "executive_summary": f"Technical Error: {str(e)}", 
+            "technical_stack": None, 
+            "detailed_breakdown": [], 
+            "use_cases": None, 
+            "tldr": "Error" 
+        })
+
+
+
+
+
+
 # -------------------------------------------------------
 # 6. RAG Answering
 # -------------------------------------------------------
