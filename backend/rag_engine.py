@@ -95,33 +95,34 @@ import json
 import openai # Ensure you have the openai library imported to catch the error
 
 def structure_content(text):
-    # We take a larger slice of the text for big pages
-    content_slice = text[:15000] # Slightly reduced to stay under token limits
+    content_slice = text[:15000] 
     
     prompt = f"""
-    Perform an exhaustive technical analysis. For large topics, you MUST provide deep detail.
-    Return a JSON object:
+    Perform a strictly factual analysis of the provided text. 
+    
+    RULES:
+    1. Do NOT invent information. If Technical Stack or Use Cases are not explicitly mentioned or implied by the technology, return null for those fields.
+    2. The 'title' must be exactly 4 words or fewer.
+    3. Do NOT use corporate filler like 'dedicated contributor' or 'valuable asset' for personal pages.
+    4. Return a JSON object with this EXACT structure:
+
     {{
-      "title": "Short Title (Max 4 words)",
-      "executive_summary": "Two long, detailed paragraphs (minimum 100 words total).",
+      "title": "Short Factual Title",
+      "executive_summary": "Detailed factual overview based ONLY on text.",
       "technical_stack": [
-        {{ "component": "Short Name", "role": "A very detailed 3-sentence explanation." }}
-      ],
+        {{ "component": "Name", "role": "Purpose" }}
+      ], // or null
       "detailed_breakdown": [
         {{ 
           "section_title": "Section Name", 
-          "content": "A substantial paragraph explaining complex concepts in depth.",
-          "bullets": ["Detailed point 1", "Detailed point 2", "Detailed point 3", "Detailed point 4", "Detailed point 5"]
+          "content": "Paragraph",
+          "bullets": ["point"]
         }}
       ],
-      "use_cases": ["Detailed scenario 1 with context", "Detailed scenario 2 with context"],
-      "tldr": "A comprehensive concluding synthesis."
+      "use_cases": ["Scenario"], // or null
+      "tldr": "Final summary"
     }}
 
-    Rules: 
-    - The 'title' field MUST NOT exceed 4 words.
-    - Provide at least 5 'detailed_breakdown' sections for comprehensive coverage.
-    
     Content:
     {content_slice}
     """
@@ -130,7 +131,7 @@ def structure_content(text):
         response = client.chat.completions.create(
             model=LLM_MODEL,
             messages=[
-                {"role": "system", "content": "You are a technical architect who writes long-form, detailed documentation."},
+                {"role": "system", "content": "You are a precise data extractor. You prioritize accuracy over length. If data is missing, you return null."},
                 {"role": "user", "content": prompt}
             ],
             response_format={ "type": "json_object" }
@@ -138,34 +139,16 @@ def structure_content(text):
         return response.choices[0].message.content
 
     except openai.RateLimitError:
-        # FALLBACK: Return a clean JSON that the frontend can display
         return json.dumps({
             "title": "API Rate Limit",
-            "executive_summary": "We have temporarily reached the maximum capacity for our AI model. This usually happens when processing very large articles or making too many requests in a short window.",
-            "technical_stack": [
-                { "component": "Quota Exceeded", "role": "The Groq API (Llama 3.3) has a daily token limit. Your request was blocked to prevent account suspension." }
-            ],
-            "detailed_breakdown": [
-                { 
-                    "section_title": "How to fix this?", 
-                    "content": "You can try again in approximately 10-15 minutes. To avoid this in the future, try summarizing shorter sections of text or upgrading your API tier.",
-                    "bullets": ["Wait 10 minutes", "Use a smaller model (8B)", "Reduce input text length"]
-                }
-            ],
-            "use_cases": ["Try again shortly", "Reduce article length"],
-            "tldr": "Rate limit reached. Please wait 10-15 minutes before trying again."
-        })
-    
-    except Exception as e:
-        # General Error Fallback
-        return json.dumps({
-            "title": "Analysis Error",
-            "executive_summary": f"An unexpected error occurred: {str(e)}",
-            "technical_stack": [],
+            "executive_summary": "System capacity reached. Please wait 10-15 minutes.",
+            "technical_stack": "null",
             "detailed_breakdown": [],
-            "use_cases": [],
-            "tldr": "Please check the console for more details."
+            "use_cases": "null",
+            "tldr": "Limit reached."
         })
+    except Exception as e:
+        return json.dumps({ "title": "Error", "executive_summary": str(e), "technical_stack": "null", "detailed_breakdown": [], "use_cases": "null", "tldr": "Error" })
 # -------------------------------------------------------
 # 6. RAG Answering
 # -------------------------------------------------------
